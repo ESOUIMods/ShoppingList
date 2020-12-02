@@ -283,22 +283,37 @@ function ShoppingList:addToSavedTable(key, value)
   return #self.SavedData.System.Tables[key]
 end
 
+function ShoppingList:CheckForDuplicate(purchasesData, itemUniqueId)
+  local dupe = false
+  for k, v in pairs(purchasesData) do
+    if v.itemUniqueId == itemUniqueId then
+      dupe = true
+      break
+    end
+  end
+  return dupe
+end
+
+-- /script ShoppingList.SavedData.System.Purchases = {}
 function ShoppingList:addPurchase(purchase)
   local indexBuyer = self:addToSavedTable("Buyers", GetDisplayName())
   local indexSeller = self:addToSavedTable("Sellers", purchase.Seller)
   local indexItemLink = self:addToSavedTable("ItemLinks", purchase.ItemLink)
   local indexGuild = self:addToSavedTable("Guilds", purchase.Guild)
 
-  table.insert(self.SavedData.System.Purchases, {
-    Buyer = indexBuyer, -- yourself
-    Seller = indexSeller, -- who listed the item
-    ItemLink = indexItemLink,
-    Quantity = purchase.Quantity,
-    Price = purchase.Price,
-    Guild = indexGuild,
-    TimeStamp = purchase.TimeStamp,
-    itemUniqueId = purchase.itemUniqueId,
-  })
+  local duplicate = ShoppingList:CheckForDuplicate(self.SavedData.System.Purchases, itemUniqueId)
+  if not duplicate then
+    table.insert(self.SavedData.System.Purchases, {
+      Buyer = indexBuyer, -- yourself
+      Seller = indexSeller, -- who listed the item
+      ItemLink = indexItemLink,
+      Quantity = purchase.Quantity,
+      Price = purchase.Price,
+      Guild = indexGuild,
+      TimeStamp = purchase.TimeStamp,
+      itemUniqueId = purchase.itemUniqueId,
+    })
+  end
 end
 
 -----
@@ -464,47 +479,28 @@ function ShoppingList:initialize()
   ShoppingList.List = SLList:New(ShoppingListWindow)
 end
 
-local function onTradingHouseEventAGS(eventCode, arg1, arg2)
-  if AwesomeGuildStore then
-    AwesomeGuildStore:RegisterCallback(AwesomeGuildStore.callback.ITEM_PURCHASED, function(itemData)
-      ShoppingList.CurrentPurchase = {}
-    ShoppingList.CurrentPurchase.ItemLink = itemData.itemLink
-    ShoppingList.CurrentPurchase.Quantity = itemData.stackCount
-    ShoppingList.CurrentPurchase.Price = itemData.purchasePrice
-    ShoppingList.CurrentPurchase.Seller = itemData.sellerName
-    ShoppingList.CurrentPurchase.Guild = itemData.guild
-    ShoppingList.CurrentPurchase.itemUniqueId = itemData.itemUniqueId
-      ShoppingList.CurrentPurchase.TimeStamp = GetTimeStamp()
-      ShoppingList:addPurchase(ShoppingList.CurrentPurchase)
-      ShoppingList.List:Refresh()
-    end)
-  end
-end
-
-local function onTradingHouseEvent(eventCode, arg1, arg2)
+local function onTradingHouseEvent(eventCode, slotId, isPending)
   if not AwesomeGuildStore then
-    if (eventCode == EVENT_TRADING_HOUSE_CONFIRM_ITEM_PURCHASE) then
-      ShoppingList.CurrentPurchase = {}
-      local icon, itemName, displayQuality, quantity, seller, timeRemaining, price, currencyType, itemUniqueId, purchasePricePerUnit = GetTradingHouseSearchResultItemInfo(arg1)
-      local guildId, guild, guildAlliance = GetCurrentTradingHouseGuildDetails()
-      ShoppingList.CurrentPurchase.ItemLink = GetTradingHouseSearchResultItemLink(arg1)
-      ShoppingList.CurrentPurchase.Quantity = quantity
-      ShoppingList.CurrentPurchase.Price = price
-      ShoppingList.CurrentPurchase.Seller = seller:gsub("|c.-$", "")
-      ShoppingList.CurrentPurchase.Guild = guild
-      ShoppingList.CurrentPurchase.itemUniqueId = itemUniqueId
-    end
-
-    if (eventCode == EVENT_TRADING_HOUSE_RESPONSE_RECEIVED) then
-      if (arg1 == TRADING_HOUSE_RESULT_PURCHASE_PENDING) and (arg2 == TRADING_HOUSE_RESULT_SUCCESS) then
-        ShoppingList.CurrentPurchase.TimeStamp = GetTimeStamp()
-        ShoppingList:addPurchase(ShoppingList.CurrentPurchase)
-        ShoppingList.List:Refresh()
-      end
-    end
+    ShoppingList.dm("Debug", "onTradingHouseEvent")
+    ShoppingList.dm("Debug", eventCode)
+    ShoppingList.dm("Debug", slotId)
+    ShoppingList.dm("Debug", isPending)
+    ShoppingList.CurrentPurchase = {}
+    local icon, itemName, displayQuality, quantity, seller, timeRemaining, price, currencyType, itemUniqueId, purchasePricePerUnit = GetTradingHouseSearchResultItemInfo(slotId)
+    local guildId, guild, guildAlliance = GetCurrentTradingHouseGuildDetails()
+    ShoppingList.CurrentPurchase.ItemLink = GetTradingHouseSearchResultItemLink(slotId)
+    ShoppingList.CurrentPurchase.Quantity = quantity
+    ShoppingList.CurrentPurchase.Price = price
+    ShoppingList.dm("Debug", seller)
+    ShoppingList.CurrentPurchase.Seller = seller:gsub("|c.-$", "")
+    ShoppingList.CurrentPurchase.Guild = guild
+    ShoppingList.CurrentPurchase.itemUniqueId = Id64ToString(itemUniqueId)
+    ShoppingList.CurrentPurchase.TimeStamp = GetTimeStamp()
+    ShoppingList.dm("Debug", ShoppingList.CurrentPurchase)
+    ShoppingList:addPurchase(ShoppingList.CurrentPurchase)
+    ShoppingList.List:Refresh()
   end
 end
-
 local function onPlayerActivated(eventCode)
   EVENT_MANAGER:UnregisterForEvent(ShoppingList.Name, eventCode)
 
@@ -516,9 +512,7 @@ local function onPlayerActivated(eventCode)
 
   ShoppingList:initialize()
 
-  EVENT_MANAGER:RegisterForEvent(ShoppingList.Name .. "_AGS", EVENT_TRADING_HOUSE_CONFIRM_ITEM_PURCHASE, onTradingHouseEventAGS)
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_TRADING_HOUSE_CONFIRM_ITEM_PURCHASE, onTradingHouseEvent)
-  EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_TRADING_HOUSE_RESPONSE_RECEIVED, onTradingHouseEvent)
 
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_MAIL_CLOSE_MAILBOX, function()
     ShoppingListWindow:SetHidden(true)
@@ -537,6 +531,29 @@ local function onAddOnLoaded(eventCode, addonName)
   -- ShoppingList.SavedData.Account = ZO_SavedVars:NewAccountWide(ShoppingList.Name, 1, nil, {})
   ShoppingList.SavedData.System = ZO_SavedVars:NewAccountWide(ShoppingList.Name .. "Var", 1, nil,
     { Tables = {}, Purchases = {}, Settings = { KeepDays = 60 } }, nil, "ShoppingList")
+
+  if AwesomeGuildStore then
+    AwesomeGuildStore:RegisterCallback(AwesomeGuildStore.callback.ITEM_PURCHASED, function(itemData)
+      ShoppingList.dm("Debug", "onTradingHouseEventAGS")
+      ShoppingList.CurrentPurchase = {}
+      ShoppingList.CurrentPurchase.ItemLink = itemData.itemLink
+      ShoppingList.CurrentPurchase.Quantity = itemData.stackCount
+      ShoppingList.CurrentPurchase.Price = itemData.purchasePrice
+      ShoppingList.CurrentPurchase.Seller = itemData.sellerName
+      ShoppingList.CurrentPurchase.Guild = itemData.guildName
+      ShoppingList.CurrentPurchase.itemUniqueId = Id64ToString(itemData.itemUniqueId)
+      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.ItemLink)
+      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Quantity)
+      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Price)
+      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Seller)
+      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Guild)
+      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.itemUniqueId)
+      ShoppingList.CurrentPurchase.TimeStamp = GetTimeStamp()
+      ShoppingList:addPurchase(ShoppingList.CurrentPurchase)
+      ShoppingList.List:Refresh()
+    end)
+  end
+
 
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_PLAYER_ACTIVATED, onPlayerActivated)
   EVENT_MANAGER:UnregisterForEvent(ShoppingList.Name, EVENT_ADD_ON_LOADED)
