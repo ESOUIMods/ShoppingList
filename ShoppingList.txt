@@ -5,7 +5,7 @@
 ## AddOnVersion: 100
 ## Version: 1.0.0
 ## DependsOn: LibAddonMenu-2.0>=31 MasterMerchant>=346
-## OptionalDependsOn: LibDebugLogger>=196 DebugLogViewer
+## OptionalDependsOn: LibDebugLogger>=196 DebugLogViewer AwesomeGuildStore>=2677
 ## SavedVariables: ShoppingListVar
 
 ShoppingList.xml
