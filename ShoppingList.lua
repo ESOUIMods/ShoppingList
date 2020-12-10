@@ -62,7 +62,7 @@ function ShoppingList.dm(log_type, ...)
   end
 end
 
-ShoppingList.Version = "0.1.4"
+ShoppingList.Version = "1.0.1"
 ShoppingList.FONT = "EsoUI/Common/Fonts/ProseAntiquePSMT.otf"
 ShoppingList.SavedData = {
   Account = nil,
@@ -481,22 +481,16 @@ end
 
 local function onTradingHouseEvent(eventCode, slotId, isPending)
   if not AwesomeGuildStore then
-    ShoppingList.dm("Debug", "onTradingHouseEvent")
-    ShoppingList.dm("Debug", eventCode)
-    ShoppingList.dm("Debug", slotId)
-    ShoppingList.dm("Debug", isPending)
     ShoppingList.CurrentPurchase = {}
     local icon, itemName, displayQuality, quantity, seller, timeRemaining, price, currencyType, itemUniqueId, purchasePricePerUnit = GetTradingHouseSearchResultItemInfo(slotId)
     local guildId, guild, guildAlliance = GetCurrentTradingHouseGuildDetails()
     ShoppingList.CurrentPurchase.ItemLink = GetTradingHouseSearchResultItemLink(slotId)
     ShoppingList.CurrentPurchase.Quantity = quantity
     ShoppingList.CurrentPurchase.Price = price
-    ShoppingList.dm("Debug", seller)
     ShoppingList.CurrentPurchase.Seller = seller:gsub("|c.-$", "")
     ShoppingList.CurrentPurchase.Guild = guild
     ShoppingList.CurrentPurchase.itemUniqueId = Id64ToString(itemUniqueId)
     ShoppingList.CurrentPurchase.TimeStamp = GetTimeStamp()
-    ShoppingList.dm("Debug", ShoppingList.CurrentPurchase)
     ShoppingList:addPurchase(ShoppingList.CurrentPurchase)
     ShoppingList.List:Refresh()
   end
@@ -534,7 +528,6 @@ local function onAddOnLoaded(eventCode, addonName)
 
   if AwesomeGuildStore then
     AwesomeGuildStore:RegisterCallback(AwesomeGuildStore.callback.ITEM_PURCHASED, function(itemData)
-      ShoppingList.dm("Debug", "onTradingHouseEventAGS")
       ShoppingList.CurrentPurchase = {}
       ShoppingList.CurrentPurchase.ItemLink = itemData.itemLink
       ShoppingList.CurrentPurchase.Quantity = itemData.stackCount
@@ -542,12 +535,6 @@ local function onAddOnLoaded(eventCode, addonName)
       ShoppingList.CurrentPurchase.Seller = itemData.sellerName
       ShoppingList.CurrentPurchase.Guild = itemData.guildName
       ShoppingList.CurrentPurchase.itemUniqueId = Id64ToString(itemData.itemUniqueId)
-      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.ItemLink)
-      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Quantity)
-      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Price)
-      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Seller)
-      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.Guild)
-      ShoppingList.dm("Debug", ShoppingList.CurrentPurchase.itemUniqueId)
       ShoppingList.CurrentPurchase.TimeStamp = GetTimeStamp()
       ShoppingList:addPurchase(ShoppingList.CurrentPurchase)
       ShoppingList.List:Refresh()
