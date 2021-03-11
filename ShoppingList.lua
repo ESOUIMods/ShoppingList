@@ -62,7 +62,7 @@ function ShoppingList.dm(log_type, ...)
   end
 end
 
-ShoppingList.Version = "1.0.1"
+ShoppingList.Version = "1.0.2"
 ShoppingList.FONT = "EsoUI/Common/Fonts/ProseAntiquePSMT.otf"
 ShoppingList.SavedData = {
   Account = nil,
