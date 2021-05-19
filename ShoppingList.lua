@@ -1,5 +1,7 @@
 ShoppingList = {}
 ShoppingList.Name = "ShoppingList"
+local internal       = _G["LibGuildStore_Internal"]
+local purchases_data    = _G["LibGuildStore_PurchaseData"]
 
 if LibDebugLogger then
   logger = LibDebugLogger.Create(ShoppingList.Name)
@@ -62,7 +64,7 @@ function ShoppingList.dm(log_type, ...)
   end
 end
 
-ShoppingList.Version = "1.0.2"
+ShoppingList.Version = "1.0.3"
 ShoppingList.FONT = "EsoUI/Common/Fonts/ProseAntiquePSMT.otf"
 ShoppingList.SavedData = {
   Account = nil,
@@ -165,7 +167,7 @@ function SLList:SetupUnitRow(control, data)
   if secsSince < 864000 then
     control.time:SetText(ZO_FormatDurationAgo(secsSince))
   else
-    control.time:SetText(zo_strformat(GetString(SK_TIME_DAYS), math.floor(secsSince / 86400.0)))
+    control.time:SetText(zo_strformat(GetString(SK_TIME_DAYS), math.floor(secsSince / ZO_ONE_DAY_IN_SECONDS)))
   end
 
   control.price:SetText(data.price .. " |t16:16:EsoUI/Art/currency/currency_gold.dds|t")
@@ -197,24 +199,32 @@ function SLList:SetupUnitRow(control, data)
 end
 
 function SLList:BuildMasterList()
+  ShoppingList.dm("Debug", "BuildMasterList")
   self.masterList = {}
 
-  for i = 1, #ShoppingList.SavedData.System.Purchases do
-    local purchase = {}
-
-    if (ShoppingList.BuyerSellerToggle == TOGGLE_BUYER) then
-      purchase["account"] = ShoppingList.SavedData.System.Tables["Buyers"][ShoppingList.SavedData.System.Purchases[i]["Buyer"]]
-    else
-      purchase["account"] = ShoppingList.SavedData.System.Tables["Sellers"][ShoppingList.SavedData.System.Purchases[i]["Seller"]]
+  for itemid, versionlist in pairs(purchases_data) do
+    if purchases_data[itemid] then
+      for versionid, versiondata in pairs(versionlist) do
+        if purchases_data[itemid][versionid] then
+          if versiondata.sales then
+            for saleid, saledata in pairs(versiondata.sales) do
+              local purchase = {}
+              if (ShoppingList.BuyerSellerToggle == TOGGLE_BUYER) then
+                purchase["account"] = internal:GetStringByIndex(internal.GS_CHECK_ACCOUNTNAME, saledata.buyer)
+              else
+                purchase["account"] = internal:GetStringByIndex(internal.GS_CHECK_ACCOUNTNAME, saledata.seller)
+              end
+              purchase["item"] = internal:GetStringByIndex(internal.GS_CHECK_ITEMLINK, saledata.itemLink)
+              purchase["guild"] = internal:GetStringByIndex(internal.GS_CHECK_GUILDNAME, saledata.guild)
+              purchase["quantity"] = saledata.quant
+              purchase["price"] = saledata.price
+              purchase["time"] = saledata.timestamp
+              table.insert(self.masterList, purchase)
+            end
+          end
+        end
+      end
     end
-
-    purchase["item"] = ShoppingList.SavedData.System.Tables["ItemLinks"][ShoppingList.SavedData.System.Purchases[i]["ItemLink"]]
-    purchase["guild"] = ShoppingList.SavedData.System.Tables["Guilds"][ShoppingList.SavedData.System.Purchases[i]["Guild"]]
-    purchase["quantity"] = ShoppingList.SavedData.System.Purchases[i]["Quantity"]
-    purchase["price"] = ShoppingList.SavedData.System.Purchases[i]["Price"]
-    purchase["time"] = ShoppingList.SavedData.System.Purchases[i]["TimeStamp"]
-
-    table.insert(self.masterList, purchase)
   end
 end
 
@@ -231,17 +241,17 @@ end
 function SLList:FilterScrollList()
   local scrollData = ZO_ScrollList_GetDataList(self.list)
   ZO_ClearNumericallyIndexedTable(scrollData)
-  local searchTerms = { zo_strsplit(' ', string.lower(ShoppingListWindowSearchBox:GetText())) }
+  local searchTerms = { zo_strsplit(' ', zo_strlower(ShoppingListWindowSearchBox:GetText())) }
 
   for i = 1, #self.masterList do
     local data = self.masterList[i]
 
     if (#searchTerms > 0) then
       for j = 1, #searchTerms do
-        if (string.find(string.lower(data.account), searchTerms[j]) ~= nil) or
-          (string.find(string.lower(data.guild), searchTerms[j]) ~= nil) or
-          (string.find(string.lower(GetItemLinkName(data.item)), searchTerms[j]) ~= nil) or
-          (string.find(string.lower(getTraitName(data.item)), searchTerms[j]) ~= nil) then
+        if (string.find(zo_strlower(data.account), searchTerms[j]) ~= nil) or
+          (string.find(zo_strlower(data.guild), searchTerms[j]) ~= nil) or
+          (string.find(zo_strlower(GetItemLinkName(data.item)), searchTerms[j]) ~= nil) or
+          (string.find(zo_strlower(getTraitName(data.item)), searchTerms[j]) ~= nil) then
           if (j == #searchTerms) then
             table.insert(scrollData, ZO_ScrollList_CreateDataEntry(1, data))
           end
@@ -303,6 +313,18 @@ function ShoppingList:addPurchase(purchase)
 
   local duplicate = ShoppingList:CheckForDuplicate(self.SavedData.System.Purchases, itemUniqueId)
   if not duplicate then
+--[[
+      local theEvent            = {
+        guild = itemData.guildName,
+        itemLink = itemData.itemLink,
+        quant = itemData.stackCount,
+        timestamp = GetTimeStamp(),
+        price = itemData.purchasePrice,
+        seller = itemData.sellerName,
+        id = Id64ToString(itemData.itemUniqueId),
+        buyer = GetDisplayName()
+      }
+]]--
     table.insert(self.SavedData.System.Purchases, {
       Buyer = indexBuyer, -- yourself
       Seller = indexSeller, -- who listed the item
@@ -396,6 +418,7 @@ function ShoppingList:deletePurchases(olderThan)
 end
 
 function ShoppingList:initialize()
+  ShoppingList.dm("Debug", "ShoppingList Initializing")
   local MMOnWindowMoveStop = MasterMerchant.OnWindowMoveStop
   function MasterMerchant:OnWindowMoveStop(window)
     if window == ShoppingListWindow then
@@ -495,18 +518,29 @@ local function onTradingHouseEvent(eventCode, slotId, isPending)
     ShoppingList.List:Refresh()
   end
 end
+
+local function StartInitialize()
+  ShoppingList.dm("Debug", "StartInitialize")
+  if MasterMerchant.isInitialized then
+    ShoppingList:initialize()
+  else
+    zo_callLater(function() StartInitialize() end, (ZO_ONE_MINUTE_IN_MILLISECONDS / 3 ) ) -- 60000 1 minute
+  end
+end
+
 local function onPlayerActivated(eventCode)
   EVENT_MANAGER:UnregisterForEvent(ShoppingList.Name, eventCode)
 
   if (MasterMerchant == nil) then
     d("ShoppingList: Master Merchant not found!")
-
     return
   end
 
-  ShoppingList:initialize()
+  StartInitialize()
 
-  EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_TRADING_HOUSE_CONFIRM_ITEM_PURCHASE, onTradingHouseEvent)
+  if not AwesomeGuildStore then
+    EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_TRADING_HOUSE_CONFIRM_ITEM_PURCHASE, onTradingHouseEvent)
+  end
 
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_MAIL_CLOSE_MAILBOX, function()
     ShoppingListWindow:SetHidden(true)
@@ -540,7 +574,6 @@ local function onAddOnLoaded(eventCode, addonName)
       ShoppingList.List:Refresh()
     end)
   end
-
 
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_PLAYER_ACTIVATED, onPlayerActivated)
   EVENT_MANAGER:UnregisterForEvent(ShoppingList.Name, EVENT_ADD_ON_LOADED)
