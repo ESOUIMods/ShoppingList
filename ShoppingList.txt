@@ -4,7 +4,7 @@
 ## Description: Original author: MildFlavour. Records your purchases from guild kiosks.
 ## AddOnVersion: 103
 ## Version: 1.0.3
-## DependsOn: LibAddonMenu-2.0>=32 MasterMerchant>=3520 LibGuildStore>=100
+## DependsOn: LibGuildStore>=101
 ## OptionalDependsOn: LibDebugLogger>=196 DebugLogViewer AwesomeGuildStore>=2677
 ## SavedVariables: ShoppingListVar
 
