@@ -2,8 +2,8 @@
 ## Author: Sharlikran
 ## APIVersion: 100034 100035
 ## Description: Original author: MildFlavour. Records your purchases from guild kiosks.
-## AddOnVersion: 103
-## Version: 1.0.3
+## AddOnVersion: 104
+## Version: 1.0.4
 ## DependsOn: LibGuildStore>=101
 ## OptionalDependsOn: LibDebugLogger>=196 DebugLogViewer AwesomeGuildStore>=2677
 ## SavedVariables: ShoppingListVar
