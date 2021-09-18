@@ -1,9 +1,9 @@
 ## Title: Shopping List
 ## Author: Sharlikran
-## APIVersion: 100034 100035
+## APIVersion: 101031
 ## Description: Original author: MildFlavour. Records your purchases from guild kiosks.
-## AddOnVersion: 104
-## Version: 1.0.4
+## AddOnVersion: 105
+## Version: 1.0.5
 ## DependsOn: LibGuildStore>=101
 ## OptionalDependsOn: LibDebugLogger>=196 DebugLogViewer AwesomeGuildStore>=2677
 ## SavedVariables: ShoppingListVar

@@ -64,7 +64,7 @@ function ShoppingList.dm(log_type, ...)
   end
 end
 
-ShoppingList.Version = "1.0.4"
+ShoppingList.Version = "1.0.5"
 ShoppingList.FONT = "EsoUI/Common/Fonts/ProseAntiquePSMT.otf"
 ShoppingList.SavedData = {
   Account = nil,
@@ -308,7 +308,7 @@ local function onPlayerActivated(eventCode)
     d("ShoppingList: Master Merchant not found!")
     return
   end
-
+  --[[
   ShoppingList:StartInitialize()
 
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_MAIL_CLOSE_MAILBOX, function()
@@ -318,6 +318,7 @@ local function onPlayerActivated(eventCode)
   EVENT_MANAGER:RegisterForEvent(ShoppingList.Name, EVENT_CLOSE_TRADING_HOUSE, function()
     ShoppingListWindow:SetHidden(true)
   end)
+  ]]--
 end
 
 local function onAddOnLoaded(eventCode, addonName)
